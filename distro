@@ -1,0 +1,38 @@
+#!/bin/bash -
+#
+# Dumps as much information as possible about the Linux distribution
+# in use on the current machine.
+#
+# Copyright (c) 2013, Matthew Kerwin
+# All rights reserved.
+#
+# See attached README.md file for full licensing information.
+#
+
+function header() {
+	echo -e "\x1B[1m$@\x1B[0m"
+}
+
+function showfile() {
+	if [ -f "$1" ] ; then
+		if [ -n "$2" ] ; then
+			header "$2"
+		fi
+		cat "$1"
+	fi
+}
+
+header UNAME
+uname -a
+
+header RELEASE
+for f in /etc/*-release /etc/*_version ; do
+	showfile $f
+done
+
+header LSB_RELEASE
+lsb_release -a
+
+showfile /proc/version VERSION
+#showfile /etc/issue BANNER
+

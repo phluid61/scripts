@@ -1,0 +1,18 @@
+#!/bin/bash
+#
+# A pre-coded `diff` command that displays full file contents with
+# differences displayed in ANSI colour inline.
+#
+# Copyright (c) 2013, Matthew Kerwin
+# All rights reserved.
+#
+# See attached README.md file for full licensing information.
+#
+/usr/bin/diff \
+	--unchanged-line-format="%L" \
+	--old-line-format="%c'\033'[31;4;2m%l%c'\033'[0m
+" \
+	--new-line-format="%c'\033'[32;4;2m%l%c'\033'[0m
+" \
+	$*
+

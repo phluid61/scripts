@@ -1,0 +1,40 @@
+#!/bin/bash --
+#
+# Does an `svn diff` using the same output format as my `nicediff`
+# script.
+#
+# Copyright (c) 2013, Matthew Kerwin
+# All rights reserved.
+#
+# See attached README.md file for full licensing information.
+#
+SELF="${BASH_SOURCE[0]}"
+
+myPPID=$PPID
+CALLER=$(ps -p $myPPID -o args=)
+CALLER="${CALLER#/bin/bash -- }"
+
+if [ "$SELF" = "$CALLER" ] ; then
+	ARGS=''
+	while (( $# )); do
+	    if [ "$1" == "-u" ]; then
+	        echo ''
+	    elif [ "$1" == "-L" ]; then
+	        shift
+	    else
+	        ARGS="${ARGS:+$ARGS }$1"
+	    fi
+	    shift                                                                                                                                                        
+	done
+
+	/usr/bin/diff \
+	    --unchanged-line-format="%L" \
+	    --old-line-format="%c'\033'[31;4;2m%l%c'\033'[0m
+" \
+	    --new-line-format="%c'\033'[32;4;2m%l%c'\033'[0m
+" \
+	    $ARGS
+else
+	svn diff --diff-cmd $SELF "$@"
+fi
+
