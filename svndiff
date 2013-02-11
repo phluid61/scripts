@@ -14,26 +14,26 @@ myPPID=$PPID
 CALLER=$(ps -p $myPPID -o args=)
 CALLER="${CALLER#/bin/bash -- }"
 
-if [ "$SELF" = "$CALLER" ] ; then
+if [[ "$CALLER" == "svn diff"* ]] ; then
 	ARGS=''
 	while (( $# )); do
-	    if [ "$1" == "-u" ]; then
-	        echo ''
-	    elif [ "$1" == "-L" ]; then
-	        shift
-	    else
-	        ARGS="${ARGS:+$ARGS }$1"
-	    fi
-	    shift                                                                                                                                                        
+		if [ "$1" == "-u" ]; then
+			echo ''
+		elif [ "$1" == "-L" ]; then
+			shift
+		else
+			ARGS="${ARGS:+$ARGS }$1"
+		fi
+		shift                                                                                                                                                        
 	done
 
 	/usr/bin/diff \
-	    --unchanged-line-format="%L" \
-	    --old-line-format="%c'\033'[31;4;2m%l%c'\033'[0m
+		--unchanged-line-format="%L" \
+		--old-line-format="%c'\033'[31;4;2m%l%c'\033'[0m
 " \
-	    --new-line-format="%c'\033'[32;4;2m%l%c'\033'[0m
+		--new-line-format="%c'\033'[32;4;2m%l%c'\033'[0m
 " \
-	    $ARGS
+		$ARGS
 else
 	svn diff --diff-cmd $SELF "$@"
 fi
