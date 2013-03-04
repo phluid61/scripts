@@ -15,6 +15,11 @@ shift
 paths="$@"
 test -z "$paths" && paths=.
 for DIR in $paths ; do
-	find -P "$DIR" -type f -not -path '*/.svn/*' -and -not -path '*/.git/*' -and -not -path '*/_baks/*' -exec grep "$PATTERN" '{}' -HIn --color=auto \;
+	find -P "$DIR" \
+		-type f \
+		-not -path '*/.svn/*' \
+		-and -not -path '*/.git/*' \
+		-and -not -path '*/_baks/*' \
+		-exec grep "$PATTERN" '{}' -HIn --color=auto \;
 done
 
