@@ -1,9 +1,11 @@
 #!/bin/bash --
 #
-# Usage:  grp <pattern> [paths]
+# Usage:  fgrp <pattern> [paths]
 #
 # A lazy `grep` script that ignores .svn, .git and _baks directories,
 # and presupposes several grep parameters.
+#
+# This version just reports the names of files that match the pattern.
 #
 # Copyright (c) 2013, Matthew Kerwin
 # All rights reserved.
@@ -15,6 +17,6 @@ shift
 paths="$@"
 test -z "$paths" && paths=.
 for DIR in $paths ; do
-	find -P "$DIR" -type f -not -path '*/.svn/*' -and -not -path '*/.git/*' -and -not -path '*/_baks/*' -exec grep "$PATTERN" '{}' -HIn --color=auto \;
+	find -P "$DIR" -type f -not -path '*/.svn/*' -and -not -path '*/_baks/*' -exec grep "$PATTERN" '{}' -RIl --color=auto \;
 done
 
