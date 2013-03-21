@@ -1,0 +1,27 @@
+#!/bin/bash --
+#
+# Usage:  grp <pattern> [paths]
+#
+# A lazy `grep` script that ignores .svn, .git and _baks directories,
+# and presupposes several grep parameters.
+#
+# This version uses Perl regular expressions.
+#
+# Copyright (c) 2013, Matthew Kerwin
+# All rights reserved.
+#
+# See attached README.md file for full licensing information.
+#
+PATTERN=$1
+shift
+paths="$@"
+test -z "$paths" && paths=.
+for DIR in $paths ; do
+	find -P "$DIR" \
+		-type f \
+		-not -path '*/.svn/*' \
+		-and -not -path '*/.git/*' \
+		-and -not -path '*/_baks/*' \
+		-exec grep "$PATTERN" '{}' -PHIn --color=auto \;
+done
+
