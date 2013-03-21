@@ -1,11 +1,11 @@
 #!/bin/bash --
 #
-# Usage:  grp <pattern> [paths]
+# Usage:  cgrp <pattern> [paths]
 #
 # A lazy `grep` script that ignores .svn, .git and _baks directories,
 # and presupposes several grep parameters.
 #
-# This verison adds three lines of context around each reported match.
+# This version adds three lines of context around each reported match.
 #
 # Copyright (c) 2013, Matthew Kerwin
 # All rights reserved.

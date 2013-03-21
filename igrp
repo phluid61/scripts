@@ -1,6 +1,6 @@
 #!/bin/bash --
 #
-# Usage:  grp <pattern> [paths]
+# Usage:  igrp <pattern> [paths]
 #
 # A lazy `grep` script that ignores .svn, .git and _baks directories,
 # and presupposes several grep parameters.
