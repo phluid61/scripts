@@ -1,0 +1,94 @@
+#!/bin/bash -
+#
+# Usage:  shm
+#
+# Analyses computer's memory size, and proposes appropriate
+# values for shared-memory sizes.
+#
+# Copyright (c) 2013, Matthew Kerwin
+# All rights reserved.
+#
+# See attached README.md file for full licensing information.
+
+#
+# Note to self:
+#
+# $ ipcs -l
+#    max segs    = SHMMNI == /proc/sys/kernel/shmmni
+#    '' seg size = SHMMAX == /proc/sys/kernel/shmmax
+#    '' memory   = SHMALL == /proc/sys/kernel/shmall
+#
+# $ cat /proc/meminfo
+# $ free -m
+#
+
+function printunit() {
+	base=$1
+	scale=$2
+	unit=$3
+	width=$4
+
+	fwidth=$(expr $width + 3)
+
+	F=$(echo "$base / $scale" | bc -l | sed -e 's/\.0*$//')
+	I=$(expr $base / $scale)
+	if [ $F = $I ] ; then
+		printf " , %${width}d -- %s" $I "$unit"
+	else
+		printf " , %${fwidth}.2f %s" $F "$unit"
+	fi
+}
+
+function printsize() {
+	B=$1
+	printf "%11d B" "$B"
+
+	limit=768
+	scale=1024
+	if [ $(expr $B / $limit) != 0 ]; then
+		printunit $B "$scale" kB 11
+		limit="$limit / 1024"
+		scale="$scale / 1024"
+		if [ $(expr $B / $limit) != 0 ]; then
+			printunit $B "$scale" MB 8
+			limit="$limit / 1024"
+			scale="$scale / 1024"
+			if [ $(expr $B / $limit) != 0 ]; then
+				printunit $B "$scale" GB 5
+			fi
+		fi
+	fi
+}
+
+# TOTAL MEMORY
+TK=`awk '/MemTotal:/ { print $2 }' /proc/meminfo`
+TB=`expr $TK \* 1024`
+# PAGE SIZE
+PB=`getconf PAGE_SIZE`
+PK=`expr $PB / 1024`
+# POOL SIZE (shmall)
+AP=`expr $TB / $PB / 2` # ideal
+AB=`expr $AP \* $PB`
+
+# MAX SEGMENT SIZE (shmmax)
+MB=`cat /proc/sys/kernel/shmmax`
+MP=`expr $MB / $PB`
+MX=`expr $MP \* $PB`
+
+# NUMBER OF MAX-SIZE SEGMENTS
+SHMMNI=`expr $AB / $MB`
+
+printf "Total memory = " ; printsize $TB ; echo ""
+printf "Page size    = " ; printsize $PB ; echo ""
+printf "shmmax       = " ; printsize $MB ; echo "  ($MP pages)"
+echo   ""
+echo   "Recommended pool (~half of system memory)"
+printf "             = " ; printsize $AB ; echo ""
+echo   "             =  $AP pages"
+echo   "             = ~$SHMMNI segments (at max size)"
+echo   ""
+echo   "Run the following as root:"
+echo   "  echo $AP > /proc/sys/kernel/shmall"
+echo   "  sysctl -p"
+echo   ""
+
