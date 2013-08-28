@@ -1,0 +1,90 @@
+#!/bin/bash --
+#
+# Usage:  file-handles [username]
+#
+# Reports on file handle usage for all processes belonging to
+# a particular user.
+#
+# Copyright (c) 2013, Matthew Kerwin
+# All rights reserved.
+#
+# See attached README.md file for full licensing information.
+#
+
+USERNAME=$USER
+if [ $# -gt 0 ]; then
+	USERNAME=$1
+fi
+
+echo "File handles for user $USERNAME"
+
+if [ "$USERNAME" == "$USER" ] ; then
+	soft=$(ulimit -Sn)
+	hard=$(ulimit -Hn)
+else
+	soft=$(sudo -u $USERNAME bash -lc 'ulimit -Sn' 2>/dev/null)
+	hard=$(sudo -u $USERNAME bash -lc 'ulimit -Hn' 2>/dev/null)
+fi
+threshold=$(expr $soft \* 3 / 4)
+
+echo ""
+echo "Limits:  hard=$hard  soft=$soft"
+
+echo ""
+echo "Current usage:"
+TOTAL=0
+COUNT=0
+OVER=0
+UNK=0
+REPORT=''
+for PID in $(ps -U $USERNAME -u $USERNAME -o pid=) ; do
+	nofile=$(ls -l /proc/$PID/fd 2>/dev/null | wc -l)
+	TOTAL=$(expr $TOTAL + $nofile)
+	COUNT=$(expr $COUNT + 1)
+	if [ $nofile -ge $threshold ] ; then
+		REPORT="$REPORT@$PID: $nofile\n"
+		OVER=$(expr $OVER + 1)
+	elif [ $nofile -eq 0 ] ; then
+		UNK=$(expr $UNK + 1)
+	fi
+done
+
+echo "  $TOTAL file handles in total ($UNK unknown processes)"
+echo "  $OVER of $COUNT processes approaching soft limit"
+echo -e $REPORT | sort -grk 2
+
+exit 0
+
+# Fallback limits
+
+sed -e 's/#.*//' < /etc/security/limits.conf | awk '
+BEGIN {
+  UH="";
+  US="";
+  SH="?";
+  SS="?";
+}
+( $3 == "nofile" ) {
+  if ( $1 == "'$USERNAME'" ) {
+    if ( $2 == "soft" ) { US=$4; }
+    if ( $2 == "hard" ) { UH=$4; }
+  }
+  if ( $1 == "*" ) {
+    if ( $2 == "soft" ) { SS=$4; }
+    if ( $2 == "hard" ) { SH=$4; }
+  }
+}
+END {
+  if ( UH == "" ) {
+    print "  hard: ",UH
+  } else {
+    print "  hard: ",SH
+  }
+  if ( US == "" ) {
+    print "  soft: ",US
+  } else {
+    print "  soft: ",SS
+  }
+}
+'
+
