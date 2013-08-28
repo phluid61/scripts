@@ -42,7 +42,7 @@ for PID in $(ps -U $USERNAME -u $USERNAME -o pid=) ; do
 	TOTAL=$(expr $TOTAL + $nofile)
 	COUNT=$(expr $COUNT + 1)
 	if [ $nofile -ge $threshold ] ; then
-		REPORT="$REPORT@$(ps -o pid= -o comm=): $nofile\n"
+		REPORT="$REPORT@$(ps -p $PID -o pid= -o comm=): $nofile\n"
 		OVER=$(expr $OVER + 1)
 	elif [ $nofile -eq 0 ] ; then
 		UNK=$(expr $UNK + 1)
