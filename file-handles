@@ -42,7 +42,7 @@ for PID in $(ps -U $USERNAME -u $USERNAME -o pid=) ; do
 	TOTAL=$(expr $TOTAL + $nofile)
 	COUNT=$(expr $COUNT + 1)
 	if [ $nofile -ge $threshold ] ; then
-		REPORT="$REPORT@$PID: $nofile\n"
+		REPORT="$REPORT@$(ps -o pid= -o comm=): $nofile\n"
 		OVER=$(expr $OVER + 1)
 	elif [ $nofile -eq 0 ] ; then
 		UNK=$(expr $UNK + 1)
@@ -55,7 +55,12 @@ echo -e $REPORT | sort -grk 2
 
 exit 0
 
-# Fallback limits
+#
+# TODO: instead of checking user limits, look in /proc/$PID/limits
+#       for "Max open files" and verify them on a per-process basis.
+#
+
+### Fallback limits (per user)
 
 sed -e 's/#.*//' < /etc/security/limits.conf | awk '
 BEGIN {
