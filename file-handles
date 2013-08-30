@@ -18,78 +18,34 @@ fi
 
 echo "File handles for user $USERNAME"
 
-if [ "$USERNAME" == "$USER" ] ; then
-	soft=$(ulimit -Sn)
-	hard=$(ulimit -Hn)
-else
-	soft=$(sudo -u $USERNAME bash -lc 'ulimit -Sn' 2>/dev/null)
-	hard=$(sudo -u $USERNAME bash -lc 'ulimit -Hn' 2>/dev/null)
-fi
-threshold=$(expr $soft \* 3 / 4)
-
-echo ""
-echo "Limits:  hard=$hard  soft=$soft"
-
-echo ""
-echo "Current usage:"
 TOTAL=0
 COUNT=0
 OVER=0
+CRIT=0
 UNK=0
 REPORT=''
 for PID in $(ps -U $USERNAME -u $USERNAME -o pid=) ; do
 	nofile=$(ls -l /proc/$PID/fd 2>/dev/null | wc -l)
-	TOTAL=$(expr $TOTAL + $nofile)
+	soft=$(awk '/Max open files/{print $4}' < /proc/$PID/limits)
+	hard=$(awk '/Max open files/{print $5}' < /proc/$PID/limits)
+	threshold=$(expr $soft \* 3 / 4)
 	COUNT=$(expr $COUNT + 1)
+	TOTAL=$(expr $TOTAL + $nofile)
 	if [ $nofile -ge $threshold ] ; then
-		REPORT="$REPORT@$(ps -p $PID -o pid= -o comm=): $nofile\n"
+		REPORT="$REPORT- $(ps -p $PID -o user= -o ruser= -o pid= -o ppid=) $nofile $soft $hard $(ps -p $PID -o comm=)\n"
 		OVER=$(expr $OVER + 1)
+		if [ $nofile -ge $soft ] ; then
+			CRIT=$(expr $CRIT + 1)
+		fi
 	elif [ $nofile -eq 0 ] ; then
 		UNK=$(expr $UNK + 1)
 	fi
-done
+done 2>/dev/null
 
-echo "  $TOTAL file handles in total ($UNK unknown processes)"
-echo "  $OVER of $COUNT processes approaching soft limit"
-echo -e $REPORT | sort -grk 2
-
-exit 0
-
-#
-# TODO: instead of checking user limits, look in /proc/$PID/limits
-#       for "Max open files" and verify them on a per-process basis.
-#
-
-### Fallback limits (per user)
-
-sed -e 's/#.*//' < /etc/security/limits.conf | awk '
-BEGIN {
-  UH="";
-  US="";
-  SH="?";
-  SS="?";
-}
-( $3 == "nofile" ) {
-  if ( $1 == "'$USERNAME'" ) {
-    if ( $2 == "soft" ) { US=$4; }
-    if ( $2 == "hard" ) { UH=$4; }
-  }
-  if ( $1 == "*" ) {
-    if ( $2 == "soft" ) { SS=$4; }
-    if ( $2 == "hard" ) { SH=$4; }
-  }
-}
-END {
-  if ( UH == "" ) {
-    print "  hard: ",UH
-  } else {
-    print "  hard: ",SH
-  }
-  if ( US == "" ) {
-    print "  soft: ",US
-  } else {
-    print "  soft: ",SS
-  }
-}
-'
+#if [ $OVER -gt 0 ] ; then
+	date +'%Y-%m-%dT%H:%M:%S%z'
+	echo "* $OVER of $COUNT processes near soft limit ($CRIT over; $UNK unknown)"
+	echo "* $TOTAL measured file handles in total"
+	echo -e $REPORT | sort -grk 2
+#fi
 
