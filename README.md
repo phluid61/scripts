@@ -7,7 +7,7 @@ Your mileage may vary.
 
 All scripts are made available under the following licensing terms:
 
-Copyright (c) 2013, Matthew Kerwin
+Copyright (c) 2013,2014, Matthew Kerwin
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

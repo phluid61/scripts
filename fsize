@@ -1,0 +1,13 @@
+#!/bin/bash -
+#
+# Usage:  fsize [<files>]
+#
+# Prints the accumulated file size, in KiB, with no adornment.
+#
+# Copyright (c) 2014, Matthew Kerwin
+# All rights reserved.
+#
+# See attached README.md file for full licensing information.
+#
+du -s "$@" | sed -e 's/\([0-9]\+\).*/\1/' | awk '{s+=$1} END {print s}'
+
