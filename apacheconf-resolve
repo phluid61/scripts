@@ -51,7 +51,7 @@ def parse_apacheconf_file fn, cwd='', depth='', &block
 	fn = File.absolute_path(fn, cwd)
 	dn = File.dirname(fn)
 	if fn['*']
-		Dir[fn].each do |realfn|
+		Dir[fn].sort.each do |realfn|
 			parse_apacheconf( File.open(realfn) {|fh| fh.read }, realfn, dn, depth, &block )
 		end
 	else
