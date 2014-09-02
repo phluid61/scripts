@@ -1,0 +1,91 @@
+#!/usr/bin/env ruby
+
+class Proc
+	alias :<< :[]
+end
+
+$nesting = '    '
+
+def indent line, base, extra=0
+	if extra && extra > 0
+		base += ($nesting * extra)
+	end
+	"#{base}#{line}"
+end
+
+def parse_apacheconf str, fn, cwd='', depth='', &block
+	local_depth = 1
+	obj = ( block || [] )
+	obj << indent("\#\# #{fn}", depth)
+	obj << indent('#{', depth)
+	str.each_line do |line|
+		line.gsub!(/#.*$/,'')
+		line.strip!
+		line.gsub!(/\s+/,' ')
+		case line
+		when ''
+			# ignore blank line
+		when /^Include (\S+)$/
+			fn = $1
+			obj << indent("\##{line}", depth, local_depth)
+			obj << indent("\#{", depth, local_depth)
+			parse_apacheconf_file fn, cwd, indent($nesting,depth,local_depth), &block
+			obj << indent("\#}", depth, local_depth)
+		when %r(<[^/])
+			obj << indent(line, depth, local_depth)
+			local_depth += 1
+		when %r(</)
+			local_depth -= 1
+			local_depth = 1 if local_depth < 1
+			obj << indent(line, depth, local_depth)
+		else
+			obj << indent(line, depth, local_depth)
+		end
+	end
+	obj << indent('#}', depth)
+	block_given? ? nil : obj
+end
+
+def parse_apacheconf_file fn, cwd='', depth='', &block
+	fn += '*' if fn.end_with? '/'
+	fn = File.absolute_path(fn, cwd)
+	dn = File.dirname(fn)
+	if fn['*']
+		Dir[fn].each do |realfn|
+			parse_apacheconf( File.open(realfn) {|fh| fh.read }, realfn, dn, depth, &block )
+		end
+	else
+		parse_apacheconf( File.open(fn) {|fh| fh.read }, fn, dn, depth, &block )
+	end
+end
+
+if ARGV.empty?
+	$root_file = '/etc/apache2/apache2.conf'
+else
+	$root_file = ARGV.first
+end
+
+parse_apacheconf_file $root_file do |line|
+	puts line
+end
+
+__END__
+
+=head1 NAME
+
+apacheconf-resolve - apache config resolver
+
+=head1 SYNOPSIS
+
+B<apacheconf-resolve> [I<filename>]
+
+=head1 DESCRIPTION
+
+Loads and minimally parses your apache conf. Reformats whitespace,
+strips all comments and blank lines, and dereferences all C<Include>
+directives.
+
+If I<filename> is omitted, defaults to C</etc/apache2/apache2.conf>
+
+=cut
+
