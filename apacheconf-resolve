@@ -25,7 +25,7 @@ def parse_apacheconf str, fn, cwd='', depth='', &block
 		case line
 		when ''
 			# ignore blank line
-		when /^Include (\S+)$/
+		when /^Include(?:Optional)? (\S+)$/
 			fn = $1
 			obj << indent("\##{line}", depth, local_depth)
 			obj << indent("\#{", depth, local_depth)
