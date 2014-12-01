@@ -4,7 +4,14 @@ class Proc
 	alias :<< :[]
 end
 
+if RUBY_VERSION.to_f < 1.9
+	class << File
+		alias :absolute_path :expand_path
+	end
+end
+
 $nesting = '    '
+$server_root = nil
 
 def indent line, base, extra=0
 	if extra && extra > 0
@@ -13,7 +20,7 @@ def indent line, base, extra=0
 	"#{base}#{line}"
 end
 
-def parse_apacheconf str, fn, cwd='', depth='', &block
+def parse_apacheconf str, fn, depth='', &block
 	local_depth = 1
 	obj = ( block || [] )
 	obj << indent("\#\# #{fn}", depth)
@@ -29,7 +36,7 @@ def parse_apacheconf str, fn, cwd='', depth='', &block
 			fn = $1
 			obj << indent("\##{line}", depth, local_depth)
 			obj << indent("\#{", depth, local_depth)
-			parse_apacheconf_file fn, cwd, indent($nesting,depth,local_depth), &block
+			parse_apacheconf_file fn, indent($nesting,depth,local_depth), &block
 			obj << indent("\#}", depth, local_depth)
 		when %r(<[^/])
 			obj << indent(line, depth, local_depth)
@@ -37,6 +44,10 @@ def parse_apacheconf str, fn, cwd='', depth='', &block
 		when %r(</)
 			local_depth -= 1
 			local_depth = 1 if local_depth < 1
+			obj << indent(line, depth, local_depth)
+		when /ServerRoot (\S+)$/
+			# FIXME: this should probably apply before any Includes
+			$server_root = $1.gsub('"','')
 			obj << indent(line, depth, local_depth)
 		else
 			obj << indent(line, depth, local_depth)
@@ -46,24 +57,24 @@ def parse_apacheconf str, fn, cwd='', depth='', &block
 	block_given? ? nil : obj
 end
 
-def parse_apacheconf_file fn, cwd='', depth='', &block
+def parse_apacheconf_file fn, depth='', &block
 	fn += '*' if fn.end_with? '/'
-	fn = File.absolute_path(fn, cwd)
-	dn = File.dirname(fn)
+	fn = File.absolute_path(fn, $server_root)
 	if fn['*']
 		Dir[fn].sort.each do |realfn|
-			parse_apacheconf( File.open(realfn) {|fh| fh.read }, realfn, dn, depth, &block )
+			parse_apacheconf( File.open(realfn) {|fh| fh.read }, realfn, depth, &block )
 		end
 	else
-		parse_apacheconf( File.open(fn) {|fh| fh.read }, fn, dn, depth, &block )
+		parse_apacheconf( File.open(fn) {|fh| fh.read }, fn, depth, &block )
 	end
 end
 
 if ARGV.empty?
 	$root_file = '/etc/apache2/apache2.conf'
 else
-	$root_file = ARGV.first
+	$root_file = File.absolute_path(ARGV.first)
 end
+$server_root = File.dirname($root_file)
 
 parse_apacheconf_file $root_file do |line|
 	puts line
