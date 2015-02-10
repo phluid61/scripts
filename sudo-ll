@@ -1,0 +1,9 @@
+#!/usr/bin/ruby
+`sudo -ll`.each_line do |line|
+  if line =~ /^(\s+)((?:NOEXEC: )?).+?, /
+    indent = $1
+    indent << ' ' * $2.length if $2
+    line.gsub! ', ', ",\n#{indent}"
+  end
+  puts line
+end
