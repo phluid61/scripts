@@ -1,0 +1,88 @@
+#!/bin/bash --
+
+##
+# Prints an optional message to STDERR, and exits.
+#
+function _exit() {
+  STATUS=$1; shift
+  if [ $# -gt 0 ] ; then
+    echo "$@" >&2
+  fi
+  exit $STATUS
+}
+
+##
+# Prints a usage message to STDERR and exits.
+#
+function usage() {
+  _exit 255 "Usage: $0 [-i | -o <OUTFILE>] <XMLFILE>"
+}
+
+#
+# Parse options
+#
+
+INPLACE=
+OFILE=-
+while getopts ':io:h?' OPT ; do
+  case "$OPT" in
+    i)
+      OFILE=
+      INPLACE=yes
+      ;;
+    o)
+      INPLACE=
+      OFILE="$OPTARG"
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+shift $((OPTIND-1))
+
+#
+# Get name of input file, and ensure it exists.
+#
+
+if [ $# -ne 1 ] ; then
+  usage
+fi
+
+IFILE="$1"
+if [ "$IFILE" = "-" ] ; then
+  if [ -n "$INPLACE" ] ; then
+    _exit 253 "Can't modify STDIN in-place"
+  fi
+elif [ ! -r "$IFILE" ] ; then
+  _exit 254 "Unable to read file '$IFILE'"
+fi
+
+# Handle in-place option.
+
+if [ -n "$INPLACE" ] ; then
+  OFILE="$IFILE"
+fi
+
+TMPFILE=$(mktemp)
+
+xmllint --format --output "$TMPFILE" "$IFILE"
+RETURN=$?
+
+#
+# Clean up after ourselves (temporary files, etc.)
+#
+
+if [ $RETURN = 0 ] && [ -n "$OFILE" ] ; then
+  if [ "$OFILE" = "-" ] ; then
+    cat $TMPFILE
+  else
+    mv $TMPFILE $OFILE
+  fi
+  RETURN=$?
+else
+  rm $TMPFILE
+fi
+
+exit $RETURN
+
