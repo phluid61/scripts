@@ -10,8 +10,13 @@ if RUBY_VERSION.to_f < 1.9
 	end
 end
 
+def is? o
+	o && !o.empty?
+end
+
 $nesting = '    '
 $server_root = nil
+$show_includes = is?(ENV['QUIET']) ? false : true
 
 def indent line, base, extra=0
 	if extra && extra > 0
@@ -21,10 +26,15 @@ def indent line, base, extra=0
 end
 
 def parse_apacheconf str, fn, depth='', &block
-	local_depth = 1
+	min_depth = 0
+	local_depth = 0
 	obj = ( block || [] )
-	obj << indent("\#\# #{fn}", depth)
-	obj << indent('#{', depth)
+	if $show_includes
+		min_depth = 1
+		local_depth = 1
+		obj << indent("\#\# #{fn}", depth)
+		obj << indent('#{', depth)
+	end
 	str.each_line do |line|
 		line.gsub!(/#.*$/,'')
 		line.strip!
@@ -34,16 +44,20 @@ def parse_apacheconf str, fn, depth='', &block
 			# ignore blank line
 		when /^Include(?:Optional)? (\S+)$/
 			fn = $1
-			obj << indent("\##{line}", depth, local_depth)
-			obj << indent("\#{", depth, local_depth)
-			parse_apacheconf_file fn, indent($nesting,depth,local_depth), &block
-			obj << indent("\#}", depth, local_depth)
+			if $show_includes
+				obj << indent("\##{line}", depth, local_depth)
+				obj << indent("\#{", depth, local_depth)
+				parse_apacheconf_file fn, indent($nesting,depth,local_depth), &block
+				obj << indent("\#}", depth, local_depth)
+			else
+				parse_apacheconf_file fn, indent('',depth,local_depth), &block
+			end
 		when %r(<[^/])
 			obj << indent(line, depth, local_depth)
 			local_depth += 1
 		when %r(</)
 			local_depth -= 1
-			local_depth = 1 if local_depth < 1
+			local_depth = min_depth if local_depth < min_depth
 			obj << indent(line, depth, local_depth)
 		when /ServerRoot (\S+)$/
 			# FIXME: this should probably apply before any Includes
@@ -53,7 +67,9 @@ def parse_apacheconf str, fn, depth='', &block
 			obj << indent(line, depth, local_depth)
 		end
 	end
-	obj << indent('#}', depth)
+	if $show_includes
+		obj << indent('#}', depth)
+	end
 	block_given? ? nil : obj
 end
 
@@ -70,7 +86,12 @@ def parse_apacheconf_file fn, depth='', &block
 end
 
 if ARGV.empty?
-	$root_file = '/etc/apache2/apache2.conf'
+	possible_files = %w(
+		/etc/apache2/apache2.conf
+		/etc/httpd/conf/httpd.conf
+	)
+	$root_file = possible_files.find { |fn| File.exist? fn }
+	raise 'No Apache httpd config file given' if !$root_file
 else
 	$root_file = File.absolute_path(ARGV.first)
 end
@@ -97,6 +118,10 @@ strips all comments and blank lines, and dereferences all C<Include>
 directives.
 
 If I<filename> is omitted, defaults to C</etc/apache2/apache2.conf>
+or C</etc/httpd/conf/httpd.conf> if either of those files exist.
+
+If the environment variable C<QUIET> is non-empty, doesn't add
+comments for included files.
 
 =cut
 
