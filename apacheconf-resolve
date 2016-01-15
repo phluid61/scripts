@@ -36,6 +36,7 @@ def parse_apacheconf str, fn, depth='', &block
 		obj << indent("\#\# #{fn}", depth)
 		obj << indent('#{', depth)
 	end
+	str.gsub!(/\s*\\(\r?\n|\r)\s*/,' ') # line continuations
 	str.each_line do |line|
 		line.gsub!(/#.*$/,'')
 		line.strip!
