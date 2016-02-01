@@ -1,0 +1,36 @@
+#!/bin/bash --
+#
+# Usage:  clean-up-old-kernels
+#
+# Uninstalls old Ubuntu kernels from /boot
+#
+# Copyright (c) 2016, Matthew Kerwin
+# All rights reserved.
+#
+# This software contains code from [Stack Overflow][1], so is released
+# under the terms of the [CC-BY-SA License][2].  Please retain this
+# copyright notice and the reference to the original Stack Overflow
+# question and answers when distributing this software.
+#
+# [1]: http://askubuntu.com/questions/89710/how-do-i-free-up-more-space-in-boot
+# [2]: http://creativecommons.org/licenses/by-sa/3.0/
+#
+
+echo -en "\e[36;1mCurrently running:\e[0m "; uname -r
+
+echo -e "\e[36;1mTo be removed:\e[0m"
+dpkg -l linux-{image,headers}-"[0-9]*" | awk '/ii/{print $2}' | grep -ve $(uname -r | sed -r 's/-[a-z]+//')
+
+echo -en "\e[36;1mOkay? [y|N]\e[0m "; read x
+
+case "$x" in
+  y*|Y*)
+    dpkg -l linux-{image,headers}-"[0-9]*" | awk '/ii/{print $2}' | grep -ve $(uname -r | sed -r 's/-[a-z]+//') | xargs sudo apt-get -y purge
+    exit $?
+    ;;
+  *)
+    echo "Aborted"
+    exit 255
+    ;;
+esac
+
