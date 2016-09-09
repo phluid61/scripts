@@ -1,0 +1,11 @@
+#!/bin/bash --
+#
+# Usage:  ccat <files...>
+#
+# Prints the concatenated content of <files> with all shell-style
+# comments and blank links removed.
+#
+# E.g.   ccat /etc/httpd/conf.d/*.conf
+#
+
+cat "$@" | sed -e 's/#.*//' | sed -e 's/\s\+$//' | grep -v '^$'
