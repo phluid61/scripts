@@ -1,0 +1,23 @@
+#!/bin/bash --
+#
+# Usage:  scat <files...>
+#
+# Prints the concatenated content of files from the network, using ssh.
+#
+# E.g.   scat user@host:path/to/file1 user@host:path/to/file2
+#
+
+while [ $# -gt 0 ] ; do
+    SPEC="$1"
+    shift
+
+    HOSTSPEC=${SPEC%%:*}
+    FILESPEC=${SPEC#*:}
+
+    if [ "$FILESPEC" == "$SPEC" ] || [ -z "$HOSTSPEC" ] ; then
+        cat "$FILESPEC"
+    else
+        ssh "$HOSTSPEC" "cat '$FILESPEC'"
+    fi
+done
+
