@@ -15,7 +15,13 @@ function _exit() {
 # Prints a usage message to STDERR and exits.
 #
 function usage() {
-  _exit 255 "Usage: $0 [-i | -o <OUTFILE>] <XMLFILE>"
+  echo "Usage: $0 [-i | -o <OUTFILE>] <XMLFILE>" >&2
+  echo "" >&2
+  echo "  -i            in-place (overwrite <XMLFILE>)" >&2
+  echo "  -o <OUTFILE>  where to save tidy XML (default: \"-\")" >&2
+  echo "" >&2
+  echo "Use a hyphen \"-\" for either filename to mean STDIN/STDOUT" >&2
+  _exit 255
 }
 
 #
@@ -76,12 +82,13 @@ RETURN=$?
 if [ $RETURN = 0 ] && [ -n "$OFILE" ] ; then
   if [ "$OFILE" = "-" ] ; then
     cat $TMPFILE
+    rm -f $TMPFILE
   else
     mv $TMPFILE $OFILE
   fi
   RETURN=$?
 else
-  rm $TMPFILE
+  rm -f $TMPFILE
 fi
 
 exit $RETURN
