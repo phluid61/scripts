@@ -1,0 +1,87 @@
+#!/bin/ruby
+
+LOGROTATE='/sbin/logrotate'
+GLOBALCFG='/etc/logrotate.conf'
+CFGDIR='/etc/logrotate.d'
+
+def usage
+  puts "Usage:  #{$0} [--verbose|--dry-run] [<options>] <spec>"
+  puts ""
+  puts "  --verbose prints the combined configuration before executing"
+  puts "  --dry-run doesn't execute logrotate (implies --verbose)"
+  puts "  options   passed to the logrotate command"
+  puts "  spec      the spec file in #{CFGDIR}"
+  exit
+end
+
+spec = nil
+args = []
+verbose = false
+dryrun = false
+ARGV.each do |a|
+  if a == '-?' || a == '--help'
+    usage
+  elsif a == '--verbose'
+    verbose = true
+  elsif a == '--dry-run'
+    dryrun = true
+  elsif a.start_with? '-'
+    args << a
+  elsif spec
+    $stderr.puts "Can't handle second spec file #{a.inspect}"
+    exit
+  else
+    spec = a
+  end
+end
+args = args.join ' '
+
+if ! spec
+  usage
+end
+
+if ! spec.match(/\A\w+([.-]\w*)*\z/)
+  $stderr.puts "Doesn't look like a spec filename: #{spec.inspect}"
+  exit
+end
+
+fn = "#{CFGDIR}/#{spec}"
+if ! File.exist?(fn)
+  $stderr.puts "Can't final spec file: #{fn}"
+  exit
+end
+
+if ! File.exist?(GLOBALCFG)
+  $stderr.puts "Can't find global configuration file: #{GLOBALCFG}"
+  exit
+end
+
+common = File.read(GLOBALCFG)
+specific = File.read(fn)
+
+common = common.each_line.map{|l| l.gsub(/\A\s+|\s+\z/,'').sub(/\s*(#.*)?\z/, '') }.reject{|l| l.empty? }.join("\n")
+common = common.gsub(/^([\x20\x09]*[-_A-Z0-9.\/*?]+[\x20\x09]+)+\{.*?\}/im, '')
+common = common.gsub(/^include .+$/, '')
+
+require 'tempfile'
+file = Tempfile.new('logrot')
+file.puts common
+file.puts specific
+file.close
+
+if verbose || dryrun
+  puts file.path
+  puts '-'*20
+  system "cat #{file.path}"
+  puts '-'*20
+end
+
+command = "#{LOGROTATE} #{args} #{file.path}"
+if dryrun
+  puts command
+else
+  system command
+end
+
+file.unlink
+
