@@ -1,4 +1,4 @@
-#!/bin/ruby
+#!/usr/bin/ruby
 
 LOGROTATE='/sbin/logrotate'
 GLOBALCFG='/etc/logrotate.conf'
