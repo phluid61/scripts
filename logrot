@@ -47,7 +47,7 @@ end
 
 fn = "#{CFGDIR}/#{spec}"
 if ! File.exist?(fn)
-  $stderr.puts "Can't final spec file: #{fn}"
+  $stderr.puts "Can't find spec file: #{fn}"
   exit
 end
 
