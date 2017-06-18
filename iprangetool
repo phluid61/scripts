@@ -1,0 +1,193 @@
+#!/usr/bin/ruby
+#
+# Usage: ruby iprangetool < ip-list
+#
+# Turns a bunch of IP addresses/ranges into a compact(?) list
+# of IP ranges.
+#
+# Environment variables:
+#
+#   SUFFIX=*   output ranges like 'a.b.*' when available
+#   SUFFIX=.   output ranges like 'a.b.' when available
+#   SUFFIX=-   output ranges like 'a.b'  when available
+#
+
+$USE_SUFFIX = ENV['SUFFIX']
+
+
+if $USE_SUFFIX == '*'
+  $SUFFIX = '.*'
+elsif $USE_SUFFIX == '-'
+  $SUFFIX = ''
+elsif $USE_SUFFIX
+  $SUFFIX = '.'
+end
+
+########################
+### Regex sub-patterns
+
+# $1
+$DIGIT = /(?:0*?(0|[1-9]\d?|1\d\d|2[0-4]\d|25[0-5]))/
+
+# $1.$2.$3.$4
+$IP = /#$DIGIT\.#$DIGIT\.#$DIGIT\.#$DIGIT/
+
+########################
+### Regex patterns
+
+# $1.$2.$3.$4-$5.$6.$7.$8
+$IPRANGE = /^#$IP-#$IP$/
+
+# $1.[$2.[$3.]]
+$IPA = /^(#$DIGIT)(?:\.\*?)?$/
+$IPB = /^(#$DIGIT)\.(#$DIGIT)(?:\.\*?)?$/
+$IPC = /^(#$DIGIT)\.(#$DIGIT)\.(#$DIGIT)(?:\.\*?)?$/
+$IPD = /^#$IP$/
+
+# $1.$2.$3.$4/$5
+$CIDR = /^#$IP\/0*?([12]?\d|3[0-2])$/
+
+########################
+
+
+# In: ?, ?, ?, ?
+# Out: int
+def digits_to_int a, b, c, d
+  (a.to_i << 24) + (b.to_i << 16) + (c.to_i << 8) + d.to_i
+end
+
+# In: ?, ?, ?, ?
+# Out: str = '12.34.56.78'
+def digits_to_str a, b, c, d
+  [a,b,c,d].map{|x|x.to_i & 0xff}.join '.'
+end
+
+# In: int
+# Out: [str, str, str, str]
+def int_to_digits i
+  a = ((i & 0xff000000) >> 24).to_s
+  b = ((i & 0x00ff0000) >> 16).to_s
+  c = ((i & 0x0000ff00) >> 8).to_s
+  d =  (i & 0x000000ff).to_s
+  [a,b,c,d]
+end
+
+# In: int
+# Out: str = '12.34.56.78'
+def int_to_str i
+  int_to_digits(i).join('.')
+end
+
+# In: str
+# Out: [int, int]
+def parse_range r
+  if m = $IPA.match(r)
+    a = digits_to_int m[1], 0, 0, 0
+    b = digits_to_int m[1], 255, 255, 255
+  elsif m = $IPB.match(r)
+    a = digits_to_int m[1], m[2], 0, 0
+    b = digits_to_int m[1], m[2], 255, 255
+  elsif m = $IPC.match(r)
+    a = digits_to_int m[1], m[2], m[3], 0
+    b = digits_to_int m[1], m[2], m[3], 255
+  elsif m = $IPD.match(r)
+    a = digits_to_int m[1], m[2], m[3], m[4]
+    b = digits_to_int m[1], m[2], m[3], m[4]
+  elsif m = $IPRANGE.match(r)
+    a = digits_to_int m[1], m[2], m[3], m[4]
+    b = digits_to_int m[5], m[6], m[7], m[8]
+  elsif m = $CIDR.match(r)
+    ip = digita_to_ip m[1], m[2], m[3], m[4]
+    bits = m[5].to_i
+    lobits = (2 ** bits) - 1
+    hibits = (0xffffffff) ^ lobits
+
+    a = ip & hibits
+    b = a | lobits
+  else
+    raise "can't parse IP range #{r.inspect}"
+  end
+  [a, b]
+end
+
+# In: int, int
+# Out: [int=ip, int=bits]
+def range_to_cidr a, b
+  c = nil
+  bitmask1 = 0x80000000
+  bitmask0 = 0x7fffffff
+  cidr = 1
+  best = [nil, nil]
+
+  c = a & bitmask1
+  same_start = c == (b & bitmask1)
+  same_end   = (a & bitmask0) ^ (b & bitmask0) == bitmask0
+  while cidr < 24 && same_start
+    if same_end
+      best = [c, cidr]
+    elsif best.first
+      return best
+    end
+    cidr += 1
+    bitmask1 = (bitmask1 >> 1) | 0x80000000
+    bitmask0 = (bitmask0 >> 1) & 0x7fffffff
+    c = a & bitmask1
+    same_start = c == (b & bitmask1)
+    same_end   = (a & bitmask0) ^ (b & bitmask0) == bitmask0
+  end
+  return best
+end
+
+# In: int, int
+# Out: str
+def range_to_str a, b
+  if b > a
+    b, a = a, b
+  elsif a == b
+    return int_to_str(a)
+  end
+
+  c, cidr = range_to_cidr a, b
+
+  z = int_to_digits(c)
+  if $USE_SUFFIX && cidr == 24
+    "#{z[0]}#$SUFFIX"
+  elsif $USE_SUFFIX && cidr == 16
+    "#{z[0]}.#{z[1]}#$SUFFIX"
+  elsif $USE_SUFFIX && cidr == 8
+    "#{z[0]}.#{z[1]}.#{z[2]}#$SUFFIX"
+  elsif cidr < 32 && cidr > 0
+    "#{int_to_str c}/#{cidr}"
+  else
+    "#{int_to_str a}-#{int_to_str b}"
+  end
+end
+
+########################
+
+ranges = []
+#ARGV.each do |arg|
+#  ranges << parse_range(arg)
+#end
+ARGF.each_line do |line|
+  ranges << parse_range(line.chomp)
+end
+
+dedup = []
+prev = nil
+ranges.sort.each do |range|
+  a, b = range
+  if prev && prev[0] <= b && prev[1] >= a
+    prev[1] = b
+  else
+    dedup << prev if prev
+    prev = range
+  end
+end
+dedup << prev if prev
+
+dedup.each do |a, b|
+  puts range_to_str a, b
+end
+
+#vim: set ts=2 sts=2 sw=2 expandtab
