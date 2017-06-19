@@ -178,7 +178,8 @@ prev = nil
 ranges.sort.each do |range|
   a, b = range
   if prev && prev[0] <= b && prev[1] >= a
-    prev[1] = b
+    prev[0] = [prev[0], a].min
+    prev[1] = [prev[1], b].max
   else
     dedup << prev if prev
     prev = range
