@@ -99,7 +99,7 @@ def parse_range r
   elsif m = $CIDR.match(r)
     ip = digits_to_int m[1], m[2], m[3], m[4]
     bits = m[5].to_i
-    lobits = (2 ** bits) - 1
+    lobits = (2 ** (32-bits)) - 1
     hibits = (0xffffffff) ^ lobits
 
     a = ip & hibits
