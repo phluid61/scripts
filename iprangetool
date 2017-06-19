@@ -141,7 +141,7 @@ end
 # In: int, int
 # Out: str
 def range_to_str a, b
-  if b > a
+  if a > b
     b, a = a, b
   elsif a == b
     return int_to_str(a)
