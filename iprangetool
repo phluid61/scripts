@@ -125,8 +125,8 @@ def range_to_cidr a, b
   while cidr < 32 && same_start
     if same_end
       best = [c, cidr]
-    elsif best.first
-      return best
+    #elsif best.first
+    #  return best
     end
     cidr += 1
     bitmask1 = (bitmask1 >> 1) | 0x80000000
