@@ -92,7 +92,7 @@ def parse_range r
     b = digits_to_int m[1], m[2], m[3], 255
   elsif m = $IPD.match(r)
     a = digits_to_int m[1], m[2], m[3], m[4]
-    b = digits_to_int m[1], m[2], m[3], m[4]
+    b = a
   elsif m = $IPRANGE.match(r)
     a = digits_to_int m[1], m[2], m[3], m[4]
     b = digits_to_int m[5], m[6], m[7], m[8]
