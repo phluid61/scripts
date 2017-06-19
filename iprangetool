@@ -151,11 +151,11 @@ def range_to_str a, b
 
   z = int_to_digits(c) if c
   if $USE_SUFFIX && cidr == 24
-    "#{z[0]}#$SUFFIX"
+    "#{z[0]}.#{z[1]}.#{z[2]}#$SUFFIX"
   elsif $USE_SUFFIX && cidr == 16
     "#{z[0]}.#{z[1]}#$SUFFIX"
   elsif $USE_SUFFIX && cidr == 8
-    "#{z[0]}.#{z[1]}.#{z[2]}#$SUFFIX"
+    "#{z[0]}#$SUFFIX"
   elsif cidr < 32 && cidr > 0
     "#{int_to_str c}/#{cidr}"
   else
