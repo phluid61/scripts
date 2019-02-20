@@ -1,0 +1,3 @@
+#!/bin/bash --
+for d in $(find . -type d) ; do restorecon $d ; done
+for f in $(find . -type f) ; do restorecon $f ; done

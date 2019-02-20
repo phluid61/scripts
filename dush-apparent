@@ -1,0 +1,17 @@
+#!/bin/bash --
+#
+# Usage:  dush [<files>]
+#
+# Calculates the size of a list of files/directories, exactly as if
+# you'd used `du -sh`, but orders them from smallest to largest.
+#
+# Copyright (c) 2014, Matthew Kerwin
+# All rights reserved.
+#
+# See attached README.md file for full licensing information.
+#
+
+for f in $(du -sb --apparent-size "$@" | sort -g | awk '{print $2}') ; do
+	du -sh --apparent-size $f
+done
+
