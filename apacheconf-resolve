@@ -80,10 +80,18 @@ def parse_apacheconf_file fn, depth='', &block
 	fn = File.absolute_path(fn, $server_root)
 	if fn['*']
 		Dir[fn].sort.each do |realfn|
-			parse_apacheconf( File.open(realfn) {|fh| fh.read }, realfn, depth, &block )
+			begin
+				parse_apacheconf( File.open(realfn) {|fh| fh.read }, realfn, depth, &block )
+			rescue => x
+				block << indent("\#\#\# #{x}", depth) if block_given?
+			end
 		end
 	else
-		parse_apacheconf( File.open(fn) {|fh| fh.read }, fn, depth, &block )
+		begin
+			parse_apacheconf( File.open(fn) {|fh| fh.read }, fn, depth, &block )
+		rescue => x
+			block << indent("\#\#\# #{x}", depth) if block_given?
+		end
 	end
 end
 
@@ -94,6 +102,10 @@ if ARGV.empty?
 	)
 	$root_file = possible_files.find { |fn| File.exist? fn }
 	raise 'No Apache httpd config file given' if !$root_file
+elsif ARGV.first == '-'
+	$server_root = Dir.pwd
+	parse_apacheconf( STDIN.read, '-', '' ) {|line| puts line }
+	exit
 else
 	$root_file = File.absolute_path(ARGV.first)
 end
@@ -121,6 +133,8 @@ directives.
 
 If I<filename> is omitted, defaults to C</etc/apache2/apache2.conf>
 or C</etc/httpd/conf/httpd.conf> if either of those files exist.
+
+If I<filename> is a dash C<-> it reads the file contents from STDIN.
 
 If the environment variable C<QUIET> is non-empty, doesn't add
 comments for included files.
