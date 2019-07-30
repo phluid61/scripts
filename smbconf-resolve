@@ -1,0 +1,133 @@
+#!/usr/bin/env ruby
+# vim: ts=2:sts=2:sw=2:expandtab
+
+class Proc
+  alias :<< :[]
+end
+
+if RUBY_VERSION.to_f < 1.9
+  class << File
+    alias :absolute_path :expand_path
+  end
+end
+
+def is? o
+  o && !o.empty?
+end
+
+$nesting = '    '
+$server_root = nil
+$show_includes = is?(ENV['QUIET']) ? false : true
+
+def indent line, base, extra=0
+  if extra && extra > 0
+    base += ($nesting * extra)
+  end
+  "#{base}#{line}"
+end
+
+def parse_smbconf str, fn, depth='', &block
+  min_depth = 0
+  local_depth = 0
+  obj = ( block || [] )
+  if $show_includes
+    min_depth = 1
+    local_depth = 1
+    obj << indent("\#\# #{fn}", depth)
+    obj << indent('#{', depth)
+  end
+  str.gsub!(/\s*\\(\r?\n|\r)\s*/,' ') # line continuations
+  str.each_line do |line|
+    line.gsub!(/[#;].*$/,'')
+    line.strip!
+    line.gsub!(/\s+/,' ')
+    case line
+    when ''
+      # ignore blank line
+    when /^include\s*=\s*(\S+)$/i
+      fn = $1
+      if $show_includes
+        obj << indent(";#{line}", depth, local_depth)
+        obj << indent(";{", depth, local_depth)
+        parse_smbconf_file fn, indent($nesting,depth,local_depth), &block
+        obj << indent(";}", depth, local_depth)
+      else
+        parse_smbconf_file fn, indent('',depth,local_depth), &block
+      end
+    when %r(\[)
+      obj << indent(line, depth, local_depth)
+    else
+      obj << indent(line, depth, local_depth+1)
+    end
+  end
+  if $show_includes
+    obj << indent(';}', depth)
+  end
+  block_given? ? nil : obj
+end
+
+def parse_smbconf_file fn, depth='', &block
+  fn += '*' if fn.end_with? '/'
+  fn = File.absolute_path(fn, $server_root)
+  if fn['*']
+    Dir[fn].sort.each do |realfn|
+      begin
+        parse_smbconf( File.open(realfn) {|fh| fh.read }, realfn, depth, &block )
+      rescue => x
+        block << indent(";;; #{x}", depth) if block_given?
+      end
+    end
+  else
+    begin
+      parse_smbconf( File.open(fn) {|fh| fh.read }, fn, depth, &block )
+    rescue => x
+      block << indent(";;; #{x}", depth) if block_given?
+    end
+  end
+end
+
+if ARGV.empty?
+  possible_files = %w(
+    /etc/samba/smb.conf
+  )
+  $root_file = possible_files.find { |fn| File.exist? fn }
+  raise 'No samba config file given' if !$root_file
+elsif ARGV.first == '-'
+  $server_root = Dir.pwd
+  parse_smbconf( STDIN.read, '-', '' ) {|line| puts line }
+  exit
+else
+  $root_file = File.absolute_path(ARGV.first)
+end
+$server_root = File.dirname($root_file)
+
+parse_smbconf_file $root_file do |line|
+  puts line
+end
+
+__END__
+
+=head1 NAME
+
+smbconf-resolve - apache config resolver
+
+=head1 SYNOPSIS
+
+B<smbconf-resolve> [I<filename>]
+
+=head1 DESCRIPTION
+
+Loads and minimally parses your samba conf. Reformats whitespace,
+strips all comments and blank lines, and dereferences all C<include>
+directives.
+
+If I<filename> is omitted, defaults to C</etc/samba/smb.conf>
+if that file exists.
+
+If I<filename> is a dash C<-> it reads the file contents from STDIN.
+
+If the environment variable C<QUIET> is non-empty, doesn't add
+comments for included files.
+
+=cut
+
