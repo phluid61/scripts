@@ -33,8 +33,8 @@ def parse_smbconf str, fn, depth='', &block
   if $show_includes
     min_depth = 1
     local_depth = 1
-    obj << indent("\#\# #{fn}", depth)
-    obj << indent('#{', depth)
+    obj << indent(";; #{fn}", depth)
+    obj << indent(';{', depth)
   end
   str.gsub!(/\s*\\(\r?\n|\r)\s*/,' ') # line continuations
   str.each_line do |line|
