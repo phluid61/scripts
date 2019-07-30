@@ -1,18 +1,18 @@
 #!/usr/bin/env ruby
-# vim: ts=2:sts=2:sw=2
+# vim: ts=2:sts=2:sw=2:expandtab
 
 class Proc
-	alias :<< :[]
+  alias :<< :[]
 end
 
 if RUBY_VERSION.to_f < 1.9
-	class << File
-		alias :absolute_path :expand_path
-	end
+  class << File
+    alias :absolute_path :expand_path
+  end
 end
 
 def is? o
-	o && !o.empty?
+  o && !o.empty?
 end
 
 $nesting = '    '
@@ -20,99 +20,99 @@ $server_root = nil
 $show_includes = is?(ENV['QUIET']) ? false : true
 
 def indent line, base, extra=0
-	if extra && extra > 0
-		base += ($nesting * extra)
-	end
-	"#{base}#{line}"
+  if extra && extra > 0
+    base += ($nesting * extra)
+  end
+  "#{base}#{line}"
 end
 
 def parse_apacheconf str, fn, depth='', &block
-	min_depth = 0
-	local_depth = 0
-	obj = ( block || [] )
-	if $show_includes
-		min_depth = 1
-		local_depth = 1
-		obj << indent("\#\# #{fn}", depth)
-		obj << indent('#{', depth)
-	end
-	str.gsub!(/\s*\\(\r?\n|\r)\s*/,' ') # line continuations
-	str.each_line do |line|
-		line.gsub!(/#.*$/,'')
-		line.strip!
-		line.gsub!(/\s+/,' ')
-		case line
-		when ''
-			# ignore blank line
-		when /^Include(?:Optional)? (\S+)$/i
-			fn = $1
-			if $show_includes
-				obj << indent("\##{line}", depth, local_depth)
-				obj << indent("\#{", depth, local_depth)
-				parse_apacheconf_file fn, indent($nesting,depth,local_depth), &block
-				obj << indent("\#}", depth, local_depth)
-			else
-				parse_apacheconf_file fn, indent('',depth,local_depth), &block
-			end
-		when %r(<[^/])
-			obj << indent(line, depth, local_depth)
-			local_depth += 1
-		when %r(</)
-			local_depth -= 1
-			local_depth = min_depth if local_depth < min_depth
-			obj << indent(line, depth, local_depth)
-		when /ServerRoot (\S+)$/i
-			# FIXME: this should probably apply before any Includes
-			$server_root = $1.gsub('"','')
-			obj << indent(line, depth, local_depth)
-		else
-			obj << indent(line, depth, local_depth)
-		end
-	end
-	if $show_includes
-		obj << indent('#}', depth)
-	end
-	block_given? ? nil : obj
+  min_depth = 0
+  local_depth = 0
+  obj = ( block || [] )
+  if $show_includes
+    min_depth = 1
+    local_depth = 1
+    obj << indent("\#\# #{fn}", depth)
+    obj << indent('#{', depth)
+  end
+  str.gsub!(/\s*\\(\r?\n|\r)\s*/,' ') # line continuations
+  str.each_line do |line|
+    line.gsub!(/#.*$/,'')
+    line.strip!
+    line.gsub!(/\s+/,' ')
+    case line
+    when ''
+      # ignore blank line
+    when /^Include(?:Optional)? (\S+)$/i
+      fn = $1
+      if $show_includes
+        obj << indent("\##{line}", depth, local_depth)
+        obj << indent("\#{", depth, local_depth)
+        parse_apacheconf_file fn, indent($nesting,depth,local_depth), &block
+        obj << indent("\#}", depth, local_depth)
+      else
+        parse_apacheconf_file fn, indent('',depth,local_depth), &block
+      end
+    when %r(<[^/])
+      obj << indent(line, depth, local_depth)
+      local_depth += 1
+    when %r(</)
+      local_depth -= 1
+      local_depth = min_depth if local_depth < min_depth
+      obj << indent(line, depth, local_depth)
+    when /ServerRoot (\S+)$/i
+      # FIXME: this should probably apply before any Includes
+      $server_root = $1.gsub('"','')
+      obj << indent(line, depth, local_depth)
+    else
+      obj << indent(line, depth, local_depth)
+    end
+  end
+  if $show_includes
+    obj << indent('#}', depth)
+  end
+  block_given? ? nil : obj
 end
 
 def parse_apacheconf_file fn, depth='', &block
-	fn += '*' if fn.end_with? '/'
-	fn = File.absolute_path(fn, $server_root)
-	if fn['*']
-		Dir[fn].sort.each do |realfn|
-			begin
-				parse_apacheconf( File.open(realfn) {|fh| fh.read }, realfn, depth, &block )
-			rescue => x
-				block << indent("\#\#\# #{x}", depth) if block_given?
-			end
-		end
-	else
-		begin
-			parse_apacheconf( File.open(fn) {|fh| fh.read }, fn, depth, &block )
-		rescue => x
-			block << indent("\#\#\# #{x}", depth) if block_given?
-		end
-	end
+  fn += '*' if fn.end_with? '/'
+  fn = File.absolute_path(fn, $server_root)
+  if fn['*']
+    Dir[fn].sort.each do |realfn|
+      begin
+        parse_apacheconf( File.open(realfn) {|fh| fh.read }, realfn, depth, &block )
+      rescue => x
+        block << indent("\#\#\# #{x}", depth) if block_given?
+      end
+    end
+  else
+    begin
+      parse_apacheconf( File.open(fn) {|fh| fh.read }, fn, depth, &block )
+    rescue => x
+      block << indent("\#\#\# #{x}", depth) if block_given?
+    end
+  end
 end
 
 if ARGV.empty?
-	possible_files = %w(
-		/etc/apache2/apache2.conf
-		/etc/httpd/conf/httpd.conf
-	)
-	$root_file = possible_files.find { |fn| File.exist? fn }
-	raise 'No Apache httpd config file given' if !$root_file
+  possible_files = %w(
+    /etc/apache2/apache2.conf
+    /etc/httpd/conf/httpd.conf
+  )
+  $root_file = possible_files.find { |fn| File.exist? fn }
+  raise 'No Apache httpd config file given' if !$root_file
 elsif ARGV.first == '-'
-	$server_root = Dir.pwd
-	parse_apacheconf( STDIN.read, '-', '' ) {|line| puts line }
-	exit
+  $server_root = Dir.pwd
+  parse_apacheconf( STDIN.read, '-', '' ) {|line| puts line }
+  exit
 else
-	$root_file = File.absolute_path(ARGV.first)
+  $root_file = File.absolute_path(ARGV.first)
 end
 $server_root = File.dirname($root_file)
 
 parse_apacheconf_file $root_file do |line|
-	puts line
+  puts line
 end
 
 __END__
