@@ -44,7 +44,7 @@ def parse_apacheconf str, fn, depth='', &block
 		case line
 		when ''
 			# ignore blank line
-		when /^Include(?:Optional)? (\S+)$/
+		when /^Include(?:Optional)? (\S+)$/i
 			fn = $1
 			if $show_includes
 				obj << indent("\##{line}", depth, local_depth)
@@ -61,7 +61,7 @@ def parse_apacheconf str, fn, depth='', &block
 			local_depth -= 1
 			local_depth = min_depth if local_depth < min_depth
 			obj << indent(line, depth, local_depth)
-		when /ServerRoot (\S+)$/
+		when /ServerRoot (\S+)$/i
 			# FIXME: this should probably apply before any Includes
 			$server_root = $1.gsub('"','')
 			obj << indent(line, depth, local_depth)
