@@ -99,6 +99,7 @@ if ARGV.empty?
   possible_files = %w(
     /etc/apache2/apache2.conf
     /etc/httpd/conf/httpd.conf
+    /opt/rh/httpd24/root/etc/httpd/conf/httpd.conf
   )
   $root_file = possible_files.find { |fn| File.exist? fn }
   raise 'No Apache httpd config file given' if !$root_file
