@@ -18,6 +18,7 @@ end
 $nesting = '    '
 $server_root = nil
 $show_includes = is?(ENV['QUIET']) ? false : true
+$macros = {}
 
 def indent line, base, extra=0
   if extra && extra > 0
@@ -36,37 +37,88 @@ def parse_apacheconf str, fn, depth='', &block
     obj << indent("\#\# #{fn}", depth)
     obj << indent('#{', depth)
   end
+  in_macro = nil
   str.gsub!(/\s*\\(\r?\n|\r)\s*/,' ') # line continuations
   str.each_line do |line|
     line.gsub!(/#.*$/,'')
     line.strip!
     line.gsub!(/\s+/,' ')
-    case line
-    when ''
-      # ignore blank line
-    when /^Include(?:Optional)? (\S+)$/i
-      fn = $1
-      if $show_includes
+    if in_macro
+      case line
+      when ''
+        # ignore blank line
+      when %r(^</Macro>$)i
+        obj << indent("\##{$nesting}...", depth, local_depth)
         obj << indent("\##{line}", depth, local_depth)
-        obj << indent("\#{", depth, local_depth)
-        parse_apacheconf_file fn, indent($nesting,depth,local_depth), &block
-        obj << indent("\#}", depth, local_depth)
+        $macros[in_macro[:name]] = {
+          :args => in_macro[:args],
+          :body => in_macro[:body].join("\n"),
+        }
+        in_macro = nil
       else
-        parse_apacheconf_file fn, indent('',depth,local_depth), &block
+        in_macro[:body] << line
       end
-    when %r(<[^/])
-      obj << indent(line, depth, local_depth)
-      local_depth += 1
-    when %r(</)
-      local_depth -= 1
-      local_depth = min_depth if local_depth < min_depth
-      obj << indent(line, depth, local_depth)
-    when /ServerRoot (\S+)$/i
-      # FIXME: this should probably apply before any Includes
-      $server_root = $1.gsub('"','')
-      obj << indent(line, depth, local_depth)
     else
-      obj << indent(line, depth, local_depth)
+      case line
+      when ''
+        # ignore blank line
+      when /^Include(?:Optional)? (\S+)$/i
+        fn = $1
+        if $show_includes
+          obj << indent("\##{line}", depth, local_depth)
+          obj << indent("\#{", depth, local_depth)
+          parse_apacheconf_file fn, indent($nesting,depth,local_depth), &block
+          obj << indent("\#}", depth, local_depth)
+        else
+          parse_apacheconf_file fn, indent('',depth,local_depth), &block
+        end
+      when /^<Macro (\S+)(.*)>$/i
+        obj << indent("\##{line}", depth, local_depth)
+        in_macro = {
+          :name => $1.downcase,
+          :args => $2.scan(/\$\S+/),
+          :body => [],
+        }
+      when /^UndefMacro (\S+)$/i
+        obj << indent("\##{line}", depth, local_depth)
+        $macros.delete $1.downcase
+      when /^Use (\S+)(.*)$/i
+        macro_name = $1.downcase
+        macro_args = $2.scan(/\S+/)
+        macro = $macros[macro_name]
+        if macro
+          rexp = []
+          subs = {}
+          macro[:args].each_with_index do |a,i|
+            rexp << Regexp.escape(a)
+            subs[a] = macro_args[i]
+          end
+          body = macro[:body].gsub /(#{rexp.join('|')})\b/i, subs
+          if $show_includes
+            obj << indent("\##{line}", depth, local_depth)
+            obj << indent("\#{", depth, local_depth)
+            parse_apacheconf body, "Macro: #{macro_name}", indent($nesting,depth,local_depth), &block
+            obj << indent("\#}", depth, local_depth)
+          else
+            parse_apacheconf body, '', indent('',depth,local_depth), &block
+          end
+        else
+          obj << index("\#\#\# Use undefined macro #{macro.inspect}", depth)
+        end
+      when %r(<[^/])
+        obj << indent(line, depth, local_depth)
+        local_depth += 1
+      when %r(</)
+        local_depth -= 1
+        local_depth = min_depth if local_depth < min_depth
+        obj << indent(line, depth, local_depth)
+      when /ServerRoot (\S+)$/i
+        # FIXME: this should probably apply before any Includes
+        $server_root = $1.gsub('"','')
+        obj << indent(line, depth, local_depth)
+      else
+        obj << indent(line, depth, local_depth)
+      end
     end
   end
   if $show_includes
