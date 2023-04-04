@@ -48,7 +48,7 @@ def parse_apacheconf str, fn, depth='', &block
       line.strip!
 
       # If we only want code-like lines, do the heuristic
-      if $keep_comments = '2'
+      if $keep_comments == '2'
         next if line =~ /^#+$/
         next if line =~ /^#+\s/
       end
