@@ -30,8 +30,10 @@ for f in /etc/*-release /etc/*_version ; do
 	showfile $f
 done
 
-header LSB_RELEASE
-lsb_release -a
+if type lsb_release >/dev/null 2>&1 ; then
+	header LSB_RELEASE
+	lsb_release -a
+fi
 
 showfile /proc/version VERSION
 #showfile /etc/issue BANNER
