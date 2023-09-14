@@ -81,15 +81,16 @@ def parse_apacheconf str, fn, depth='', &block
         case line
         when ''
           # ignore blank line
-        when /^Include(?:Optional)? (\S+)$/i
-          fn = $1
+        when /^Include((?:Optional)?) (\S+)$/i
+          optional = ($1 != '')
+          fn = $2
           if $show_includes
             obj << indent("\##{line}", depth, local_depth)
             obj << indent("\#{", depth, local_depth)
-            parse_apacheconf_file fn, indent($nesting,depth,local_depth), &block
+            parse_apacheconf_file fn, indent($nesting,depth,local_depth), optional, &block
             obj << indent("\#}", depth, local_depth)
           else
-            parse_apacheconf_file fn, indent('',depth,local_depth), &block
+            parse_apacheconf_file fn, indent('',depth,local_depth), optional, &block
           end
         when /^<Macro (\S+)(.*)>$/i
           obj << indent("\##{line}", depth, local_depth)
@@ -147,7 +148,7 @@ def parse_apacheconf str, fn, depth='', &block
   block_given? ? nil : obj
 end
 
-def parse_apacheconf_file fn, depth='', &block
+def parse_apacheconf_file fn, depth='', optional=false, &block
   fn += '*' if fn.end_with? '/'
   fn = File.absolute_path(fn, $server_root)
   if fn['*']
@@ -160,7 +161,9 @@ def parse_apacheconf_file fn, depth='', &block
     end
   else
     begin
-      parse_apacheconf( File.open(fn) {|fh| fh.read }, fn, depth, &block )
+      if File.exist?(fn) || !optional
+        parse_apacheconf( File.open(fn) {|fh| fh.read }, fn, depth, &block )
+      end
     rescue => x
       block << indent("\#\#\# #{x}", depth) if block_given?
     end
