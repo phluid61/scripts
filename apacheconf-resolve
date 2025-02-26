@@ -27,10 +27,10 @@ def indent mode, line, base, extra=0
   if $colours && mode
     case mode
     when :include
-      pre = "\e[36m"
+      pre = "\e[32m"
       post = "\e[0m"
     when :section
-      pre = "\e[32m"
+      pre = "\e[36m"
       post = "\e[0m"
     #when :directive
     #  pre = ''
